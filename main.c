@@ -1,3 +1,18 @@
+/*
+   Copyright 2013 Bardes Lighting, LLC
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+ */
 
 // read and write ps/2 protocol
 // in particular, talk to a ps/2 trackball, and return it's values over a serial port.
@@ -26,6 +41,9 @@
 #define PS2_BASE  GPIO_PORTA_BASE
 #define CLK_PIN   GPIO_PIN_4
 #define DAT_PIN   GPIO_PIN_5
+
+#define BUTTON_1 GPIO_PIN_4
+#define DEBOUNCE 50
 
 // possible signal states
 enum
@@ -158,10 +176,6 @@ void delay(long milliseconds)
 		delayMicroseconds(1000);
 	}
 }
-
-
-
-
 
 // read ps/2 data pin.
 char PS2ReadDat(void)
@@ -352,14 +366,8 @@ void PS2Init(void) {
 	IntEnable(INT_GPIOA);
 }
 
-#define BUTTON_1 GPIO_PIN_4
-#define DEBOUNCE 50
-
-// initialize and start looping
-void main(void)
+inline void setup()
 {
-	int iCmd;
-
 	// use raw 16mhz clock  (plenty more available...)
 	SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN |	SYSCTL_XTAL_16MHZ);
 
@@ -396,7 +404,14 @@ void main(void)
 	IntMasterEnable();
 	// set interrupt on the ps/2 clock line
 	PS2Init();
+}
 
+// initialize and start looping
+void main(void)
+{
+	setup();
+
+	int iCmd;
 	unsigned long g_goMillis = 0;
 
 	// superloop
