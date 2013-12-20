@@ -85,6 +85,8 @@ _ReSharper*
 
 *.o
 *.d
+*.axf
+*.bin
 
 # DocProject is a documentation generator add-in
 DocProject/buildhelp/

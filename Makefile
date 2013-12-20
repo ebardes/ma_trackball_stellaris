@@ -27,7 +27,11 @@ ma.axf: $(OBJS) Makefile
 .c.o:
 	$(CC) $(CFLAGS) -c -o $*.o $*.c
 
+flash: ma.bin
+	SU lm4flash ma.bin
+
 clean:
+	rm ma.bin
 	rm ma.axf
 	rm *.o
 	rm *.d
