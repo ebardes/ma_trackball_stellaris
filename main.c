@@ -26,6 +26,7 @@
 #include "driverlib/interrupt.h"
 #include "driverlib/gpio.h"
 #include "driverlib/sysctl.h"
+#include "driverlib/systick.h"
 #include "driverlib/timer.h"
 #include "driverlib/uart.h"
 
@@ -407,7 +408,7 @@ inline void setup()
 }
 
 // initialize and start looping
-void main(void)
+int main(void)
 {
 	setup();
 
@@ -517,5 +518,5 @@ void main(void)
 			GPIO_PORTF_DATA_R &= ~(GPIO_PIN_1);
 		}
 	}
-
+	return 0;
 }
