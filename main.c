@@ -367,7 +367,7 @@ void PS2Init(void) {
 	IntEnable(INT_GPIOA);
 }
 
-inline void setup()
+inline static void setup()
 {
 	// use raw 16mhz clock  (plenty more available...)
 	SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC | SYSCTL_OSC_MAIN |	SYSCTL_XTAL_16MHZ);
@@ -405,6 +405,79 @@ inline void setup()
 	IntMasterEnable();
 	// set interrupt on the ps/2 clock line
 	PS2Init();
+}
+
+inline static void processPS2()
+{
+	// have we recieved a byte from the slave?
+	if (g_ucPS2RXState == PS2_STATE_DONE)
+	{
+
+		switch (g_ucPS2SlaveState) {
+		case SLAVE_DATA_EXPECTED:
+		{
+			switch (g_ucMovSeq){
+
+			case 0: {
+				g_ucMovHeader = g_ulRXCode;
+				// check if this could be the first packet, whose 3rd bit is always 1
+				if ( CHECK_BIT(g_ulRXCode,3) != 0) { g_ucMovSeq++; }
+				break;
+			}
+			case 1: {
+				g_ucDeltaX = g_ulRXCode;
+				g_ucMovSeq++;
+				break;
+			}
+			case 2: {
+				g_ucDeltaY = g_ulRXCode;
+				g_ucMovSeq = 0;
+				UARTCharPut(UART0_BASE, 'm' );
+				UARTCharPut(UART0_BASE, g_ucMovHeader );
+				UARTCharPut(UART0_BASE, g_ucDeltaX );
+				UARTCharPut(UART0_BASE, g_ucDeltaY );
+				break;
+			}
+			}
+			break;
+		}// slave data expected
+
+		case SLAVE_ACK_EXPECTED:
+		{
+			g_ucMovSeq = 0;
+			if (g_ulRXCode == 0xAA) {
+				UARTCharPut(UART0_BASE, 0xAA);
+
+				// turn off led
+				GPIO_PORTF_DATA_R &= ~(GPIO_PIN_1);
+				Ps2Send(0xF2);
+				g_ucPS2SlaveState = SLAVE_INITIALIZED;
+			} else {
+				UARTCharPut(UART0_BASE, 0xFE);  // reset has failed
+			}
+			break;
+		}// slave ack expected
+
+		case SLAVE_INITIALIZED:
+		{
+			g_ucMovSeq = 0;
+			if (g_ulRXCode == 0x00) {
+				Ps2Send(0xF4);
+				g_ucPS2SlaveState = SLAVE_DATA_EXPECTED;
+			} else {
+				UARTCharPut(UART0_BASE, 0xF4 );
+			}
+			break;
+		}// slave ack expected
+
+		} // slave state switch
+		g_ucPS2RXState = PS2_STATE_IDLE; // get ready for the next char
+
+
+		// turn off the LEDs
+		GPIO_PORTF_DATA_R &= ~(GPIO_PIN_2);
+		GPIO_PORTF_DATA_R &= ~(GPIO_PIN_1);
+	}
 }
 
 // initialize and start looping
@@ -447,76 +520,7 @@ int main(void)
 			}
 		}
 
-
-		// have we recieved a byte from the slave?
-		if (g_ucPS2RXState == PS2_STATE_DONE)
-		{
-
-			switch (g_ucPS2SlaveState) {
-			case SLAVE_DATA_EXPECTED:
-			{
-				switch (g_ucMovSeq){
-
-				case 0: {
-					g_ucMovHeader = g_ulRXCode;
-					// check if this could be the first packet, whose 3rd bit is always 1
-					if ( CHECK_BIT(g_ulRXCode,3) != 0) { g_ucMovSeq++; }
-					break;
-				}
-				case 1: {
-					g_ucDeltaX = g_ulRXCode;
-					g_ucMovSeq++;
-					break;
-				}
-				case 2: {
-					g_ucDeltaY = g_ulRXCode;
-					g_ucMovSeq = 0;
-					UARTCharPut(UART0_BASE, 'm' );
-					UARTCharPut(UART0_BASE, g_ucMovHeader );
-					UARTCharPut(UART0_BASE, g_ucDeltaX );
-					UARTCharPut(UART0_BASE, g_ucDeltaY );
-					break;
-				}
-				}
-				break;
-			}// slave data expected
-
-			case SLAVE_ACK_EXPECTED:
-			{
-				g_ucMovSeq = 0;
-				if (g_ulRXCode == 0xAA) {
-					UARTCharPut(UART0_BASE, 0xAA);
-
-					// turn off led
-					GPIO_PORTF_DATA_R &= ~(GPIO_PIN_1);
-					Ps2Send(0xF2);
-					g_ucPS2SlaveState = SLAVE_INITIALIZED;
-				} else {
-					UARTCharPut(UART0_BASE, 0xFE);  // reset has failed
-				}
-				break;
-			}// slave ack expected
-
-			case SLAVE_INITIALIZED:
-			{
-				g_ucMovSeq = 0;
-				if (g_ulRXCode == 0x00) {
-					Ps2Send(0xF4);
-					g_ucPS2SlaveState = SLAVE_DATA_EXPECTED;
-				} else {
-					UARTCharPut(UART0_BASE, 0xF4 );
-				}
-				break;
-			}// slave ack expected
-
-			} // slave state switch
-			g_ucPS2RXState = PS2_STATE_IDLE; // get ready for the next char
-
-
-			// turn off the LEDs
-			GPIO_PORTF_DATA_R &= ~(GPIO_PIN_2);
-			GPIO_PORTF_DATA_R &= ~(GPIO_PIN_1);
-		}
+		processPS2();
 	}
 	return 0;
 }
